@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amazon Buy Box Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-color: #0d0f14;
+    --surface: #151820;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --primary-glow: rgba(99, 102, 241, 0.35);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text-main: #f1f5f9;
+    --text-muted: #7c8aaa;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif; }
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(99,102,241,0.12) 0%, transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(16,185,129,0.08) 0%, transparent 40%);
+  }
+  @media (max-width: 900px) { body { flex-direction: column; } }
+
+  /* Sidebar */
+  .sidebar {
+    width: 360px; flex-shrink: 0;
+    background: linear-gradient(180deg, #161a24 0%, #0e1117 100%);
+    border-right: 1px solid rgba(99,102,241,0.12);
+    display: flex; flex-direction: column; padding: 24px; gap: 4px;
+  }
+  @media (max-width: 900px) { .sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(99,102,241,0.12); } }
+
+  .logo { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .logo-left { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), #818cf8); display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+  .version-badge { font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: rgba(99,102,241,0.18); color: #a5b4fc; margin-left: 8px; }
+  .icon-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .icon-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+  .control-group { margin-bottom: 18px; }
+  .control-group > label {
+    display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-muted);
+    margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+  }
+  .control-group > label::before { content: ''; width: 3px; height: 11px; border-radius: 2px; background: linear-gradient(180deg, var(--primary), rgba(99,102,241,0.3)); }
+
+  textarea, select, input[type=text], input[type=number] {
+    width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; color: var(--text-main); font-size: 0.85rem; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  textarea { height: 84px; resize: vertical; font-family: 'SFMono-Regular', Consolas, monospace; }
+  textarea:focus, select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  select { cursor: pointer; }
+  select option { background: var(--surface); }
+
+  .asin-counter { font-size: 0.7rem; color: var(--text-muted); margin-top: 5px; text-align: right; }
+  .asin-counter.has-asins { color: var(--primary); font-weight: 600; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 0.85rem; }
+  .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider-toggle { position: absolute; inset: 0; background: rgba(0,0,0,0.3); border: 1px solid var(--border); transition: .3s; border-radius: 34px; cursor: pointer; }
+  .slider-toggle:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background: var(--text-muted); transition: .3s; border-radius: 50%; }
+  input:checked + .slider-toggle { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+  input:checked + .slider-toggle:before { transform: translateX(16px); background: #fff; }
+
+  .collapsible-header {
+    cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-left: 3px solid rgba(99,102,241,0.3);
+    border-radius: 8px; font-size: 0.85rem; font-weight: 600; user-select: none; margin-bottom: 18px;
+  }
+  .collapsible-header:hover { background: rgba(99,102,241,0.06); border-left-color: var(--primary); }
+  .collapsible-header.open { margin-bottom: 0; border-radius: 8px 8px 0 0; }
+  .chevron { transition: transform 0.2s; }
+  .collapsible-header.open .chevron { transform: rotate(180deg); }
+  .collapsible-content {
+    max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.25s ease;
+    border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; padding: 0 12px;
+  }
+  .collapsible-content.open { max-height: 500px; opacity: 1; padding: 12px; margin-bottom: 18px; }
+
+  .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .checkbox-grid label { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; cursor: pointer; color: var(--text-muted); }
+  .checkbox-grid input { accent-color: var(--primary); width: 13px; height: 13px; }
+
+  .slider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .slider-row input[type=range] { flex: 1; accent-color: var(--primary); }
+  .slider-row input[type=number] { width: 52px; text-align: center; padding: 5px; font-family: monospace; }
+
+  .btn {
+    padding: 11px; border-radius: 8px; border: none; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.18s;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-start { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; box-shadow: 0 4px 14px -3px rgba(99,102,241,0.45); }
+  .btn-start:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px -3px rgba(99,102,241,0.55); }
+  .btn-stop { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.25); }
+  .btn-stop:hover:not(:disabled) { background: rgba(239,68,68,0.2); }
+  .btn-retry { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; }
+  .btn-reset { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-reset:hover { color: var(--text-main); border-color: var(--border-hover); }
+  .action-buttons { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
+  .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Main content */
+  .main-content { flex: 1; display: flex; flex-direction: column; padding: 24px; gap: 20px; overflow-y: auto; min-width: 0; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat-card {
+    background: rgba(30,33,40,0.6); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+    position: relative; overflow: hidden; backdrop-filter: blur(10px);
+  }
+  .stat-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .stat-value { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
+  .stat-card.primary .stat-value { color: var(--primary); }
+  .stat-card.success .stat-value { color: var(--success); }
+  .stat-card.danger .stat-value { color: var(--danger); }
+  .progress-bar-container { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.03); }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), #38bdf8); width: 0%; transition: width 0.4s; }
+
+  .rate-graph-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; }
+  .rate-graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .rate-graph-title { font-size: 0.85rem; color: var(--text-muted); }
+  .rate-graph-value { font-size: 0.75rem; font-family: monospace; color: var(--primary); }
+  #rate-graph-canvas { width: 100%; height: 56px; display: block; border-radius: 6px; background: rgba(0,0,0,0.2); }
+
+  .middle-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .middle-row { grid-template-columns: 1fr; } }
+  .card { background: rgba(30,33,40,0.6); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(10px); }
+  .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
+
+  .live-preview-content { display: flex; padding: 18px 20px; gap: 18px; align-items: center; min-height: 168px; }
+  .preview-img-container { width: 110px; height: 110px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; overflow: hidden; flex-shrink: 0; }
+  .preview-img-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .preview-title { font-size: 1rem; font-weight: 600; margin-bottom: 6px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .preview-asin { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; font-family: monospace; }
+  .preview-price { font-size: 1.3rem; font-weight: 700; color: var(--success); }
+
+  .log { padding: 12px 16px; overflow-y: auto; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.78rem; line-height: 1.7; color: var(--text-muted); background: rgba(0,0,0,0.3); flex: 1; min-height: 168px; max-height: 260px; }
+  .log p { margin-bottom: 3px; word-wrap: break-word; }
+
+  .table-container { flex: 1; background: rgba(30,33,40,0.6); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; min-height: 300px; }
+  .table-scroll { overflow: auto; flex: 1; }
+  table { width: 100%; border-collapse: collapse; text-align: left; }
+  th { background: rgba(0,0,0,0.3); padding: 12px 16px; font-weight: 700; font-size: 0.66rem; color: var(--text-muted); position: sticky; top: 0; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+  .item-cell { display: flex; align-items: center; gap: 10px; }
+  .item-thumb { width: 34px; height: 34px; border-radius: 6px; background: #fff; object-fit: contain; padding: 2px; flex-shrink: 0; }
+  .item-title { max-width: 280px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
+  .asin-link { color: #38bdf8; text-decoration: none; font-family: monospace; }
+  .asin-link:hover { text-decoration: underline; }
+  .status-pill { padding: 3px 9px; border-radius: 20px; font-size: 0.62rem; font-weight: 700; display: inline-block; white-space: nowrap; }
+  .status-pill.success { background: rgba(16,185,129,0.1); color: var(--success); border: 1px solid rgba(16,185,129,0.15); }
+  .status-pill.error { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.15); }
+  .own-pill { padding: 3px 9px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; }
+  .own-pill.yes { background: rgba(16,185,129,0.12); color: var(--success); }
+  .own-pill.no { background: rgba(239,68,68,0.12); color: var(--danger); }
+  .own-pill.na { background: rgba(124,138,170,0.12); color: var(--text-muted); }
+
+  .btn-action { padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-main); display: flex; align-items: center; gap: 6px; }
+  .btn-action.excel { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: var(--success); }
+  .btn-action:hover { background: rgba(255,255,255,0.06); }
+
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 8px; color: var(--text-muted); }
+  .empty-state-icon { font-size: 2.5rem; opacity: 0.45; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(6px); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; }
+  .modal-overlay.visible { display: flex; }
+  .modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 440px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+  .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-close { background: transparent; color: var(--text-muted); border: none; font-size: 22px; cursor: pointer; line-height: 1; }
+  .modal-body { padding: 20px; }
+  .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+  .completion-stats { display: flex; text-align: center; border-bottom: 1px solid var(--border); }
+  .cstat { flex: 1; padding: 16px 8px; border-right: 1px solid var(--border); }
+  .cstat:last-child { border-right: none; }
+  .cstat-val { font-size: 1.6rem; font-weight: 800; }
+  .cstat-val.green { color: var(--success); }
+  .cstat-val.red { color: var(--danger); }
+  .cstat-val.indigo { color: var(--primary); }
+  .cstat-lbl { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 10px; padding: 10px 16px; font-size: 0.8rem; box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-width: 300px; animation: toast-in 0.25s ease; }
+  .toast.success { border-left-color: var(--success); }
+  .toast.warn { border-left-color: var(--warning); }
+  .toast.error { border-left-color: var(--danger); }
+  @keyframes toast-in { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+</style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-left">
+        <div class="logo-icon">🏆</div>
+        <span>Buy Box Scanner<span class="version-badge">v1.0</span></span>
+      </div>
+      <button class="icon-btn" id="btn-open-help" title="Help">?</button>
+    </div>
+
+    <div class="control-group">
+      <label>Scrape History</label>
+      <select id="history-selector">
+        <option value="" disabled selected>Select past scan run...</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Target ASINs</label>
+      <textarea id="asins" placeholder="Paste ASINs here (comma, space, or newline separated)..."></textarea>
+      <div class="asin-counter" id="asin-counter">0 ASINs</div>
+    </div>
+
+    <div class="control-group">
+      <label>Marketplace</label>
+      <select id="marketplace">
+        <option value="https://www.amazon.com">Amazon.com (US)</option>
+        <option value="https://www.amazon.co.uk" selected>Amazon.co.uk (UK)</option>
+        <option value="https://www.amazon.de">Amazon.de (Germany)</option>
+        <option value="https://www.amazon.fr">Amazon.fr (France)</option>
+        <option value="https://www.amazon.ca">Amazon.ca (Canada)</option>
+        <option value="https://www.amazon.com.au">Amazon.com.au (Australia)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Your Seller/Brand Name(s)</label>
+      <input type="text" id="owner-names" placeholder="Comma separated, optional">
+    </div>
+
+    <div class="control-group">
+      <div class="toggle-row">
+        <span>Auto Retry Failed</span>
+        <label class="switch"><input type="checkbox" id="auto-retry-cb" checked><span class="slider-toggle"></span></label>
+      </div>
+    </div>
+
+    <div class="collapsible-header" id="adv-header">
+      <span>⚙️ Delay Between Requests</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="collapsible-content" id="adv-content">
+      <label style="font-size:0.7rem;color:var(--text-muted);margin-bottom:6px;display:block;">Min delay (seconds)</label>
+      <div class="slider-row">
+        <input type="range" id="delay-min-slider" min="1" max="30" value="4">
+        <input type="number" id="delay-min-input" min="1" max="30" value="4">
+      </div>
+      <label style="font-size:0.7rem;color:var(--text-muted);margin:8px 0 6px;display:block;">Max delay (seconds)</label>
+      <div class="slider-row">
+        <input type="range" id="delay-max-slider" min="1" max="60" value="8">
+        <input type="number" id="delay-max-input" min="1" max="60" value="8">
+      </div>
+      <div style="font-size:0.68rem;color:var(--text-muted);margin-top:8px;line-height:1.5;">Longer delays are politer to Amazon but slower. 4–8s is a reasonable default.</div>
+    </div>
+
+    <div class="collapsible-header" id="export-header">
+      <span>📊 Export Fields</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="collapsible-content" id="export-content">
+      <div class="checkbox-grid">
+        <label><input type="checkbox" class="export-cb" value="title" checked> Title</label>
+        <label><input type="checkbox" class="export-cb" value="brand" checked> Brand</label>
+        <label><input type="checkbox" class="export-cb" value="price" checked> Price</label>
+        <label><input type="checkbox" class="export-cb" value="rating" checked> Rating</label>
+        <label><input type="checkbox" class="export-cb" value="bsr" checked> BSR</label>
+        <label><input type="checkbox" class="export-cb" value="category"> Category</label>
+        <label><input type="checkbox" class="export-cb" value="buybox" checked> Buy Box Seller</label>
+        <label><input type="checkbox" class="export-cb" value="offers" checked> # Other Offers</label>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="btn btn-start" id="btn-start">▶ Start Scanning</button>
+      <div class="action-row">
+        <button class="btn btn-stop" id="btn-stop" disabled>Stop</button>
+        <button class="btn btn-reset" id="btn-reset">Reset</button>
+      </div>
+      <button class="btn btn-retry" id="btn-retry" style="display:none;">Retry Failed</button>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main-content">
+    <div class="stats-grid">
+      <div class="stat-card primary">
+        <div class="stat-title">Total Processed</div>
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="progress-bar-container"><div class="progress-bar" id="progress-bar"></div></div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-title">Successfully Scraped</div>
+        <div class="stat-value" id="stat-done">0</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-title">Failed</div>
+        <div class="stat-value" id="stat-failed">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Estimated Time Left</div>
+        <div class="stat-value" id="stat-eta" style="font-size:1.2rem;font-family:monospace;margin-top:8px;">--m --s</div>
+      </div>
+    </div>
+
+    <div class="rate-graph-card">
+      <div class="rate-graph-header">
+        <span class="rate-graph-title">⚡ Live Scan Speed (ASINs/min)</span>
+        <span class="rate-graph-value" id="rate-label">0 ASINs/min</span>
+      </div>
+      <canvas id="rate-graph-canvas" height="56"></canvas>
+    </div>
+
+    <div class="middle-row">
+      <div class="card">
+        <div class="card-header"><span>Current Active Scan</span></div>
+        <div class="live-preview-content">
+          <div class="preview-img-container"><img id="preview-img" src="" alt="" style="display:none;"><span id="preview-placeholder" style="font-size:2rem;opacity:0.3;">📦</span></div>
+          <div>
+            <div class="preview-title" id="preview-title">Waiting to start...</div>
+            <div class="preview-asin" id="preview-asin">ASIN: ----</div>
+            <div class="preview-price" id="preview-price">--</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">Activity Console</div>
+        <div class="log" id="log"><p>Ready to scan.</p></div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="card-header">
+        <span>Results</span>
+        <button class="btn-action excel" id="btn-csv" disabled>⬇ Download CSV</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Product</th><th>ASIN</th><th>Price</th><th>Buy Box Seller</th><th>You Own It?</th><th>Status</th></tr>
+          </thead>
+          <tbody id="results-body">
+            <tr id="empty-row"><td colspan="6"><div class="empty-state"><div class="empty-state-icon">📭</div><div>No data scanned yet.</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion Modal -->
+  <div class="modal-overlay" id="completion-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h2 style="font-size:1.05rem;">✅ Scan Complete</h2><button class="modal-close" id="btn-close-completion">&times;</button></div>
+      <div class="completion-stats">
+        <div class="cstat"><div class="cstat-val green" id="c-success">0</div><div class="cstat-lbl">Succeeded</div></div>
+        <div class="cstat"><div class="cstat-val red" id="c-failed">0</div><div class="cstat-lbl">Failed</div></div>
+        <div class="cstat"><div class="cstat-val indigo" id="c-total">0</div><div class="cstat-lbl">Total</div></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-start" id="btn-completion-ok" style="padding:9px 20px;">Done</button></div>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="help-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h2 style="font-size:1.05rem;">🏆 How this works</h2><button class="modal-close" id="btn-close-help">&times;</button></div>
+      <div class="modal-body" style="font-size:0.85rem; line-height:1.7; color:var(--text-muted);">
+        Paste ASINs, pick a marketplace, and hit Start. Each ASIN is fetched live from Amazon (with a random delay between requests to stay polite) and checked for who currently holds the Buy Box. Add your seller/brand name to get a Yes/No "you own it" column. When it's done, download a CSV of everything.
+      </div>
+      <div class="modal-footer"><button class="btn btn-reset" id="btn-help-ok" style="padding:9px 20px;">Got it</button></div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+<script>
+let pollTimer = null;
+let currentJobId = null;
+let currentResults = [];
+let currentFailed = [];
+let scanStartTime = 0;
+let ratePoints = [];
+let lastProcessedForRate = 0;
+
+const $ = (id) => document.getElementById(id);
+
+function showToast(msg, type = 'info') {
+  const c = $('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function logMsg(msg) {
+  const el = $('log');
+  const p = document.createElement('p');
+  p.textContent = msg;
+  el.appendChild(p);
+  el.scrollTop = el.scrollHeight;
+}
+
+function updateAsinCounter() {
+  const text = $('asins').value.trim();
+  const counter = $('asin-counter');
+  if (!text) { counter.textContent = '0 ASINs'; counter.classList.remove('has-asins'); return; }
+  const matches = text.match(/\b[A-Za-z0-9]{10}\b/g) || [];
+  const unique = new Set(matches.map(m => m.toUpperCase())).size;
+  counter.textContent = `${unique} ASIN${unique !== 1 ? 's' : ''} detected`;
+  counter.classList.toggle('has-asins', unique > 0);
+}
+$('asins').addEventListener('input', updateAsinCounter);
+
+// ── Persisted fields (marketplace, owner names) ─────────────────────────────
+['marketplace', 'owner-names'].forEach(id => {
+  const el = $(id);
+  const saved = localStorage.getItem('bbx_' + id);
+  if (saved) el.value = saved;
+  el.addEventListener('change', () => localStorage.setItem('bbx_' + id, el.value));
+});
+
+// ── Collapsibles ─────────────────────────────────────────────────────────────
+function setupCollapsible(headerId, contentId) {
+  const header = $(headerId), content = $(contentId);
+  header.addEventListener('click', () => {
+    header.classList.toggle('open');
+    content.classList.toggle('open');
+  });
+}
+setupCollapsible('adv-header', 'adv-content');
+setupCollapsible('export-header', 'export-content');
+
+// ── Delay sliders ────────────────────────────────────────────────────────────
+function linkSliderAndInput(sliderId, inputId) {
+  const s = $(sliderId), i = $(inputId);
+  s.addEventListener('input', () => i.value = s.value);
+  i.addEventListener('change', () => s.value = i.value);
+}
+linkSliderAndInput('delay-min-slider', 'delay-min-input');
+linkSliderAndInput('delay-max-slider', 'delay-max-input');
+
+// ── Help / Completion modals ─────────────────────────────────────────────────
+$('btn-open-help').addEventListener('click', () => $('help-modal').classList.add('visible'));
+$('btn-close-help').addEventListener('click', () => $('help-modal').classList.remove('visible'));
+$('btn-help-ok').addEventListener('click', () => $('help-modal').classList.remove('visible'));
+$('btn-close-completion').addEventListener('click', () => $('completion-modal').classList.remove('visible'));
+$('btn-completion-ok').addEventListener('click', () => $('completion-modal').classList.remove('visible'));
+
+// ── Rate graph ───────────────────────────────────────────────────────────────
+function renderRateGraph() {
+  const canvas = $('rate-graph-canvas');
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = 56 * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 56;
+  ctx.clearRect(0, 0, W, H);
+
+  if (ratePoints.length < 2) return;
+  const maxDelta = Math.max(...ratePoints.map(p => p.delta), 1);
+  const recentSum = ratePoints.reduce((a, b) => a + b.delta, 0);
+  const asinsPerMin = (recentSum / ratePoints.length) * 60;
+  $('rate-label').textContent = `${asinsPerMin.toFixed(0)} ASINs/min`;
+
+  const step = W / Math.max(ratePoints.length - 1, 1);
+  const getY = (d) => H - 6 - ((d / maxDelta) * (H - 12));
+
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ratePoints.forEach((p, i) => ctx.lineTo(i * step, getY(p.delta)));
+  ctx.lineTo((ratePoints.length - 1) * step, H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(99,102,241,0.08)';
+  ctx.fill();
+
+  ctx.beginPath();
+  ratePoints.forEach((p, i) => i === 0 ? ctx.moveTo(0, getY(p.delta)) : ctx.lineTo(i * step, getY(p.delta)));
+  ctx.strokeStyle = 'rgba(99,102,241,0.9)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// ── Table + preview rendering ────────────────────────────────────────────────
+function ownerMatch(sellerName, ownerNames) {
+  if (!ownerNames.length) return null;
+  const s = (sellerName || '').toLowerCase();
+  return ownerNames.some(n => s.includes(n));
+}
+
+function renderTable(results, failed, ownerNames) {
+  const body = $('results-body');
+  body.innerHTML = '';
+  if (results.length === 0 && failed.length === 0) {
+    body.innerHTML = '<tr id="empty-row"><td colspan="6"><div class="empty-state"><div class="empty-state-icon">📭</div><div>No data scanned yet.</div></div></td></tr>';
+    return;
+  }
+  results.slice().reverse().forEach(r => {
+    const bb = r.buyBoxWinner;
+    const seller = bb && bb.soldBy ? bb.soldBy : 'No Buy Box';
+    const price = bb && bb.price ? bb.price : (r.price || '-');
+    const img = (r.imageData && r.imageData[0]) ? r.imageData[0].cleanUrl : '';
+    let ownPill = '<span class="own-pill na">—</span>';
+    if (ownerNames.length) {
+      const match = ownerMatch(seller, ownerNames);
+      ownPill = match ? '<span class="own-pill yes">✅ Yes</span>' : '<span class="own-pill no">❌ No</span>';
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><div class="item-cell">
+        ${img ? `<img class="item-thumb" src="${img}" onerror="this.style.display='none'">` : ''}
+        <div class="item-title">${(r.title || 'N/A')}</div>
+      </div></td>
+      <td><a class="asin-link" href="${r.productUrl}" target="_blank" rel="noopener">${r.asin}</a></td>
+      <td>${price}</td>
+      <td>${seller}</td>
+      <td>${ownPill}</td>
+      <td><span class="status-pill success">Success</span></td>
+    `;
+    body.appendChild(tr);
+  });
+  failed.slice().reverse().forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><div class="item-title">—</div></td>
+      <td>${f.asin}</td>
+      <td>-</td><td>-</td>
+      <td><span class="own-pill na">—</span></td>
+      <td><span class="status-pill error" title="${f.reason}">Failed</span></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function updatePreview(current) {
+  if (!current) return;
+  const img = $('preview-img'), placeholder = $('preview-placeholder');
+  if (current.stage === 'loading') {
+    $('preview-title').textContent = `Scanning ${current.asin}...`;
+    $('preview-asin').textContent = `ASIN: ${current.asin}`;
+    $('preview-price').textContent = '--';
+    img.style.display = 'none'; placeholder.style.display = 'block';
+  } else if (current.stage === 'success') {
+    $('preview-title').textContent = current.title || 'N/A';
+    $('preview-asin').textContent = `ASIN: ${current.asin}`;
+    $('preview-price').textContent = current.price || '--';
+    if (current.image) { img.src = current.image; img.style.display = 'block'; placeholder.style.display = 'none'; }
+    else { img.style.display = 'none'; placeholder.style.display = 'block'; }
+  } else if (current.stage === 'failed') {
+    $('preview-title').textContent = `Failed: ${current.reason}`;
+    $('preview-asin').textContent = `ASIN: ${current.asin}`;
+    $('preview-price').textContent = '--';
+    img.style.display = 'none'; placeholder.style.display = 'block';
+  }
+}
+
+// ── CSV export ───────────────────────────────────────────────────────────────
+function getCheckedExportFields() {
+  return Array.from(document.querySelectorAll('.export-cb:checked')).map(cb => cb.value);
+}
+
+function toCsv(results, failed, ownerNames) {
+  const fields = getCheckedExportFields();
+  const colDefs = [
+    { key: 'title', header: 'Title', get: r => r.title || '' },
+    { key: 'brand', header: 'Brand', get: r => r.brand || '' },
+    { key: 'price', header: 'Price', get: r => r.price || '' },
+    { key: 'rating', header: 'Rating', get: r => r.rating || '' },
+    { key: 'bsr', header: 'BSR', get: r => r.bsr || '' },
+    { key: 'category', header: 'Category', get: r => r.category || '' },
+    { key: 'buybox', header: 'Buy Box Seller', get: r => (r.buyBoxWinner ? r.buyBoxWinner.soldBy : '') || 'No Buy Box' },
+    { key: 'offers', header: '# Other Offers', get: r => (r.otherOffers || []).length }
+  ].filter(c => fields.includes(c.key));
+
+  const header = ['ASIN', 'Marketplace', 'You Own It?', ...colDefs.map(c => c.header), 'Product URL'];
+  const rows = [header];
+
+  results.forEach(r => {
+    const seller = r.buyBoxWinner ? r.buyBoxWinner.soldBy : 'No Buy Box';
+    const ownIt = ownerNames.length ? (ownerMatch(seller, ownerNames) ? 'Yes' : 'No') : '—';
+    rows.push([r.asin, r.marketplace, ownIt, ...colDefs.map(c => c.get(r)), r.productUrl]);
+  });
+  failed.forEach(f => {
+    rows.push([f.asin, '', '—', ...colDefs.map(() => ''), `FAILED: ${f.reason}`]);
+  });
+
+  return rows.map(row => row.map(cell => {
+    let s = String(cell ?? '');
+    if (/^[=+\-@]/.test(s)) s = "'" + s;
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }).join(',')).join('\n');
+}
+
+$('btn-csv').addEventListener('click', () => {
+  const ownerNames = $('owner-names').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const csv = toCsv(currentResults, currentFailed, ownerNames);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `BuyBox_Report_${currentResults.length}_ASINs_${Date.now()}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+
+// ── Scrape history (localStorage) ───────────────────────────────────────────
+function loadHistoryDropdown() {
+  const sel = $('history-selector');
+  const history = JSON.parse(localStorage.getItem('bbx_history') || '[]');
+  sel.innerHTML = '<option value="" disabled selected>Select past scan run...</option>';
+  history.forEach((run, idx) => {
+    const opt = document.createElement('option');
+    opt.value = idx;
+    opt.textContent = run.label;
+    sel.appendChild(opt);
+  });
+}
+$('history-selector').addEventListener('change', (e) => {
+  const history = JSON.parse(localStorage.getItem('bbx_history') || '[]');
+  const run = history[e.target.value];
+  if (!run) return;
+  currentResults = run.results;
+  currentFailed = run.failed;
+  const ownerNames = $('owner-names').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  renderTable(currentResults, currentFailed, ownerNames);
+  $('stat-total').textContent = currentResults.length + currentFailed.length;
+  $('stat-done').textContent = currentResults.length;
+  $('stat-failed').textContent = currentFailed.length;
+  $('btn-csv').disabled = currentResults.length === 0;
+  logMsg(`Loaded historical run: ${run.label}`);
+});
+function saveToHistory(results, failed) {
+  const history = JSON.parse(localStorage.getItem('bbx_history') || '[]');
+  const label = `${results.length} ASINs scanned - ${new Date().toLocaleString()}`;
+  history.unshift({ label, results, failed, timestamp: Date.now() });
+  localStorage.setItem('bbx_history', JSON.stringify(history.slice(0, 10)));
+  loadHistoryDropdown();
+}
+loadHistoryDropdown();
+
+// ── Core scan flow ───────────────────────────────────────────────────────────
+async function startScan(asinList) {
+  const marketplace = $('marketplace').value;
+  const ownerNames = $('owner-names').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const minDelaySec = Number($('delay-min-input').value) || 4;
+  const maxDelaySec = Number($('delay-max-input').value) || 8;
+
+  $('btn-start').disabled = true;
+  $('btn-stop').disabled = false;
+  $('btn-retry').style.display = 'none';
+  $('log').innerHTML = '';
+  scanStartTime = Date.now();
+  ratePoints = [];
+  lastProcessedForRate = 0;
+  logMsg(`Submitting scan of ${asinList.length} ASIN(s)...`);
+
+  const resp = await fetch('/api/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ asins: asinList, marketplace, ownerNames, minDelaySec, maxDelaySec })
+  });
+  const data = await resp.json();
+  if (!resp.ok) {
+    logMsg('❌ ' + data.error);
+    showToast(data.error, 'error');
+    $('btn-start').disabled = false;
+    $('btn-stop').disabled = true;
+    return;
+  }
+
+  currentJobId = data.jobId;
+  let lastLogCount = 0;
+
+  pollTimer = setInterval(async () => {
+    const jobResp = await fetch(`/api/scan/${currentJobId}`);
+    if (!jobResp.ok) { clearInterval(pollTimer); return; }
+    const job = await jobResp.json();
+
+    $('stat-total').textContent = job.total;
+    $('stat-done').textContent = job.results.length;
+    $('stat-failed').textContent = job.failed.length;
+    $('progress-bar').style.width = job.total ? `${Math.round((job.processed / job.total) * 100)}%` : '0%';
+
+    for (let i = lastLogCount; i < job.logs.length; i++) logMsg(job.logs[i]);
+    lastLogCount = job.logs.length;
+
+    ratePoints.push({ delta: job.processed - lastProcessedForRate });
+    lastProcessedForRate = job.processed;
+    if (ratePoints.length > 60) ratePoints.shift();
+    renderRateGraph();
+
+    if (job.processed > 0 && job.status === 'running') {
+      const elapsed = Date.now() - scanStartTime;
+      const avgMs = elapsed / job.processed;
+      const remaining = job.total - job.processed;
+      const remainingMs = avgMs * remaining;
+      const totalSec = Math.floor(remainingMs / 1000);
+      $('stat-eta').textContent = `${Math.floor(totalSec / 60)}m ${totalSec % 60}s`;
+    }
+
+    updatePreview(job.current);
+
+    const ownerNames2 = $('owner-names').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    currentResults = job.results;
+    currentFailed = job.failed;
+    renderTable(currentResults, currentFailed, ownerNames2);
+
+    if (job.status !== 'running') {
+      clearInterval(pollTimer);
+      $('btn-start').disabled = false;
+      $('btn-stop').disabled = true;
+      $('btn-csv').disabled = currentResults.length === 0;
+      $('stat-eta').textContent = job.status === 'stopped' ? 'Stopped' : 'Done!';
+
+      if (currentFailed.length > 0) $('btn-retry').style.display = 'inline-flex';
+
+      if (job.status === 'done') {
+        saveToHistory(currentResults, currentFailed);
+        $('c-success').textContent = currentResults.length;
+        $('c-failed').textContent = currentFailed.length;
+        $('c-total').textContent = currentResults.length + currentFailed.length;
+        $('completion-modal').classList.add('visible');
+        showToast(`Scan complete — ${currentResults.length} succeeded`, 'success');
+      }
+    }
+  }, 1500);
+}
+
+$('btn-start').addEventListener('click', () => {
+  const text = $('asins').value.trim();
+  if (!text) { showToast('Paste ASINs first', 'warn'); return; }
+  const asins = [...new Set((text.match(/\b[A-Za-z0-9]{10}\b/g) || []).map(a => a.toUpperCase()))];
+  if (asins.length === 0) { showToast('No valid 10-character ASINs found', 'warn'); return; }
+  startScan(asins);
+});
+
+$('btn-stop').addEventListener('click', async () => {
+  if (!currentJobId) return;
+  await fetch(`/api/scan/${currentJobId}/stop`, { method: 'POST' });
+  logMsg('Stop requested...');
+  $('btn-stop').disabled = true;
+});
+
+$('btn-retry').addEventListener('click', () => {
+  if (currentFailed.length === 0) return;
+  const retryAsins = currentFailed.map(f => f.asin);
+  logMsg(`Retrying ${retryAsins.length} failed ASIN(s)...`);
+  startScan(retryAsins);
+});
+
+$('btn-reset').addEventListener('click', () => {
+  if (pollTimer) clearInterval(pollTimer);
+  currentResults = []; currentFailed = []; currentJobId = null;
+  $('stat-total').textContent = '0'; $('stat-done').textContent = '0'; $('stat-failed').textContent = '0';
+  $('stat-eta').textContent = '--m --s'; $('progress-bar').style.width = '0%';
+  $('log').innerHTML = '<p>Ready to scan.</p>';
+  $('btn-csv').disabled = true; $('btn-retry').style.display = 'none';
+  $('btn-start').disabled = false; $('btn-stop').disabled = true;
+  renderTable([], [], []);
+  updatePreview({ asin: '----', stage: 'loading' });
+  $('preview-title').textContent = 'Waiting to start...';
+  $('preview-asin').textContent = 'ASIN: ----';
+  $('preview-price').textContent = '--';
+});
+</script>
+</body>
+</html>
